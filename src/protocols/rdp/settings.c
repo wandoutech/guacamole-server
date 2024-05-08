@@ -1395,15 +1395,15 @@ void guac_rdp_settings_free(guac_rdp_settings* settings) {
 }
 
 int guac_rdp_get_width(freerdp* rdp) {
-    return rdp->settings->DesktopWidth;
+    return freerdp_settings_get_uint32(rdp->context->settings, FreeRDP_DesktopWidth);
 }
 
 int guac_rdp_get_height(freerdp* rdp) {
-    return rdp->settings->DesktopHeight;
+    return freerdp_settings_get_uint32(rdp->context->settings, FreeRDP_DesktopHeight);
 }
 
 int guac_rdp_get_depth(freerdp* rdp) {
-    return rdp->settings->ColorDepth;
+    return freerdp_settings_get_uint32(rdp->context->settings, FreeRDP_ColorDepth);
 }
 
 /**
@@ -1454,78 +1454,80 @@ static int guac_rdp_get_performance_flags(guac_rdp_settings* guac_settings) {
 void guac_rdp_push_settings(guac_client* client,
         guac_rdp_settings* guac_settings, freerdp* rdp) {
 
-    rdpSettings* rdp_settings = rdp->settings;
+    rdpSettings* rdp_settings = rdp->context->settings;
 
     /* Authentication */
-    rdp_settings->Domain = guac_strdup(guac_settings->domain);
-    rdp_settings->Username = guac_strdup(guac_settings->username);
-    rdp_settings->Password = guac_strdup(guac_settings->password);
+    freerdp_settings_set_string(rdp_settings, FreeRDP_Domain, guac_strdup(guac_settings->domain));
+    freerdp_settings_set_string(rdp_settings, FreeRDP_Username, guac_strdup(guac_settings->username));
+    freerdp_settings_set_string(rdp_settings, FreeRDP_Password, guac_strdup(guac_settings->password));
 
     /* Connection */
-    rdp_settings->ServerHostname = guac_strdup(guac_settings->hostname);
-    rdp_settings->ServerPort = guac_settings->port;
+    freerdp_settings_set_string(rdp_settings, FreeRDP_ServerHostname, guac_strdup(guac_settings->hostname));
+    freerdp_settings_set_uint32(rdp_settings, FreeRDP_ServerPort, guac_settings->port);
 
     /* Session */
-    rdp_settings->ColorDepth = guac_settings->color_depth;
-    rdp_settings->DesktopWidth = guac_settings->width;
-    rdp_settings->DesktopHeight = guac_settings->height;
-    rdp_settings->AlternateShell = guac_strdup(guac_settings->initial_program);
-    rdp_settings->KeyboardLayout = guac_settings->server_layout->freerdp_keyboard_layout;
+
+    freerdp_settings_set_uint32(rdp_settings, FreeRDP_DesktopWidth, guac_settings->width);
+    freerdp_settings_set_uint32(rdp_settings, FreeRDP_DesktopHeight, guac_settings->height);
+    freerdp_settings_set_uint32(rdp_settings, FreeRDP_ColorDepth, guac_settings->color_depth);
+    freerdp_settings_set_string(rdp_settings, FreeRDP_AlternateShell, guac_strdup(guac_settings->initial_program));
+    freerdp_settings_set_uint32(rdp_settings, FreeRDP_KeyboardLayout, guac_settings->server_layout->freerdp_keyboard_layout);
+
 
     /* Performance flags */
     /* Explicitly set flag value */
-    rdp_settings->PerformanceFlags = guac_rdp_get_performance_flags(guac_settings);
+    freerdp_settings_set_uint32(rdp_settings, FreeRDP_PerformanceFlags, guac_rdp_get_performance_flags(guac_settings));
 
     /* Always request frame markers */
-    rdp_settings->FrameMarkerCommandEnabled = TRUE;
-    rdp_settings->SurfaceFrameMarkerEnabled = TRUE;
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_FrameMarkerCommandEnabled, TRUE);
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_SurfaceFrameMarkerEnabled, TRUE);
 
     /* Enable RemoteFX / Graphics Pipeline */
     if (guac_settings->enable_gfx) {
 
-        rdp_settings->SupportGraphicsPipeline = TRUE;
-        rdp_settings->RemoteFxCodec = TRUE;
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_SupportGraphicsPipeline, TRUE);
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_RemoteFxCodec, TRUE);
 
-        if (rdp_settings->ColorDepth != RDP_GFX_REQUIRED_DEPTH) {
+        if (freerdp_settings_get_uint32(rdp_settings, FreeRDP_ColorDepth) != RDP_GFX_REQUIRED_DEPTH) {
             guac_client_log(client, GUAC_LOG_WARNING, "Ignoring requested "
                     "color depth of %i bpp, as the RDP Graphics Pipeline "
-                    "requires %i bpp.", rdp_settings->ColorDepth, RDP_GFX_REQUIRED_DEPTH);
+                    "requires %i bpp.", freerdp_settings_get_uint32(rdp_settings, FreeRDP_ColorDepth), RDP_GFX_REQUIRED_DEPTH);
         }
 
         /* Required for RemoteFX / Graphics Pipeline */
-        rdp_settings->FastPathOutput = TRUE;
-        rdp_settings->ColorDepth = RDP_GFX_REQUIRED_DEPTH;
-        rdp_settings->SoftwareGdi = TRUE;
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_FastPathOutput, TRUE);
+        freerdp_settings_set_uint32(rdp_settings, FreeRDP_ColorDepth, RDP_GFX_REQUIRED_DEPTH);
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_SoftwareGdi, TRUE);
 
     }
 
     /* Set individual flags - some FreeRDP versions overwrite the above */
-    rdp_settings->AllowFontSmoothing = guac_settings->font_smoothing_enabled;
-    rdp_settings->DisableWallpaper = !guac_settings->wallpaper_enabled;
-    rdp_settings->DisableFullWindowDrag = !guac_settings->full_window_drag_enabled;
-    rdp_settings->DisableMenuAnims = !guac_settings->menu_animations_enabled;
-    rdp_settings->DisableThemes = !guac_settings->theming_enabled;
-    rdp_settings->AllowDesktopComposition = guac_settings->desktop_composition_enabled;
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_AllowFontSmoothing, guac_settings->font_smoothing_enabled);
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_DisableWallpaper, guac_settings->wallpaper_enabled);
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_DisableFullWindowDrag, guac_settings->full_window_drag_enabled);
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_DisableMenuAnims, guac_settings->menu_animations_enabled);
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_DisableThemes, guac_settings->theming_enabled);
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_AllowDesktopComposition, guac_settings->desktop_composition_enabled);
 
     /* Client name */
     if (guac_settings->client_name != NULL) {
-        guac_strlcpy(rdp_settings->ClientHostname, guac_settings->client_name,
-                RDP_CLIENT_HOSTNAME_SIZE);
+        freerdp_settings_set_string(rdp_settings, FreeRDP_ClientHostname, 
+                guac_strndup(guac_settings->client_name, RDP_CLIENT_HOSTNAME_SIZE));
     }
 
     /* Console */
-    rdp_settings->ConsoleSession = guac_settings->console;
-    rdp_settings->RemoteConsoleAudio = guac_settings->console_audio;
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_ConsoleSession, guac_settings->console);
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_RemoteConsoleAudio, guac_settings->console_audio);
 
     /* Audio */
-    rdp_settings->AudioPlayback = guac_settings->audio_enabled;
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_AudioPlayback, guac_settings->audio_enabled);
 
     /* Audio capture */
-    rdp_settings->AudioCapture = guac_settings->enable_audio_input;
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_AudioCapture, guac_settings->enable_audio_input);
 
     /* Display Update channel */
-    rdp_settings->SupportDisplayControl =
-        (guac_settings->resize_method == GUAC_RESIZE_DISPLAY_UPDATE);
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_SupportDisplayControl, 
+            (guac_settings->resize_method == GUAC_RESIZE_DISPLAY_UPDATE));
 
     /* Timezone redirection */
     if (guac_settings->timezone) {
@@ -1537,64 +1539,62 @@ void guac_rdp_push_settings(guac_client* client,
     }
 
     /* Device redirection */
-    rdp_settings->DeviceRedirection =  guac_settings->audio_enabled
-                                    || guac_settings->drive_enabled
-                                    || guac_settings->printing_enabled;
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_DeviceRedirection, 
+            (guac_settings->audio_enabled || guac_settings->drive_enabled || guac_settings->printing_enabled));
 
     /* Security */
     switch (guac_settings->security_mode) {
 
         /* Legacy RDP encryption */
         case GUAC_SECURITY_RDP:
-            rdp_settings->RdpSecurity = TRUE;
-            rdp_settings->TlsSecurity = FALSE;
-            rdp_settings->NlaSecurity = FALSE;
-            rdp_settings->ExtSecurity = FALSE;
-            rdp_settings->UseRdpSecurityLayer = TRUE;
-            rdp_settings->EncryptionLevel = ENCRYPTION_LEVEL_CLIENT_COMPATIBLE;
-            rdp_settings->EncryptionMethods =
-                  ENCRYPTION_METHOD_40BIT
-                | ENCRYPTION_METHOD_128BIT 
-                | ENCRYPTION_METHOD_FIPS;
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_RdpSecurity, TRUE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_TlsSecurity, FALSE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_NlaSecurity, FALSE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_ExtSecurity, FALSE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_UseRdpSecurityLayer, TRUE);
+            freerdp_settings_set_uint32(rdp_settings, FreeRDP_EncryptionLevel, 
+                    ENCRYPTION_LEVEL_CLIENT_COMPATIBLE);
+            freerdp_settings_set_uint32(rdp_settings, FreeRDP_EncryptionMethods, 
+                    ENCRYPTION_METHOD_40BIT | ENCRYPTION_METHOD_128BIT | ENCRYPTION_METHOD_FIPS);
             break;
 
         /* TLS encryption */
         case GUAC_SECURITY_TLS:
-            rdp_settings->RdpSecurity = FALSE;
-            rdp_settings->TlsSecurity = TRUE;
-            rdp_settings->NlaSecurity = FALSE;
-            rdp_settings->ExtSecurity = FALSE;
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_RdpSecurity, FALSE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_TlsSecurity, TRUE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_NlaSecurity, FALSE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_ExtSecurity, FALSE);
             break;
 
         /* Network level authentication */
         case GUAC_SECURITY_NLA:
-            rdp_settings->RdpSecurity = FALSE;
-            rdp_settings->TlsSecurity = FALSE;
-            rdp_settings->NlaSecurity = TRUE;
-            rdp_settings->ExtSecurity = FALSE;
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_RdpSecurity, FALSE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_TlsSecurity, FALSE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_NlaSecurity, TRUE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_ExtSecurity, FALSE);
             break;
 
         /* Extended network level authentication */
         case GUAC_SECURITY_EXTENDED_NLA:
-            rdp_settings->RdpSecurity = FALSE;
-            rdp_settings->TlsSecurity = FALSE;
-            rdp_settings->NlaSecurity = FALSE;
-            rdp_settings->ExtSecurity = TRUE;
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_RdpSecurity, FALSE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_TlsSecurity, FALSE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_NlaSecurity, FALSE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_ExtSecurity, TRUE);
             break;
 
         /* Hyper-V "VMConnect" negotiation mode */
         case GUAC_SECURITY_VMCONNECT:
-            rdp_settings->RdpSecurity = FALSE;
-            rdp_settings->TlsSecurity = TRUE;
-            rdp_settings->NlaSecurity = TRUE;
-            rdp_settings->ExtSecurity = FALSE;
-            rdp_settings->VmConnectMode = TRUE;
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_RdpSecurity, FALSE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_TlsSecurity, TRUE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_NlaSecurity, TRUE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_ExtSecurity, FALSE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_VmConnectMode, TRUE);
             break;
 
         /* All security types */
         case GUAC_SECURITY_ANY:
-            rdp_settings->RdpSecurity = TRUE;
-            rdp_settings->TlsSecurity = TRUE;
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_RdpSecurity, TRUE);
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_TlsSecurity, TRUE);
 
             /* Explicitly disable NLA if FIPS mode is enabled - it won't work */
             if (guac_fips_enabled()) {
@@ -1602,95 +1602,100 @@ void guac_rdp_push_settings(guac_client* client,
                 guac_client_log(client, GUAC_LOG_INFO,
                         "FIPS mode is enabled. Excluding NLA security mode from security negotiation "
                         "(see: https://github.com/FreeRDP/FreeRDP/issues/3412).");
-                rdp_settings->NlaSecurity = FALSE;
+                freerdp_settings_set_bool(rdp_settings, FreeRDP_NlaSecurity, FALSE);
 
             }
 
             /* NLA mode is allowed if FIPS is not enabled */
             else
-                rdp_settings->NlaSecurity = TRUE;
+                freerdp_settings_set_bool(rdp_settings, FreeRDP_NlaSecurity, TRUE);
 
-            rdp_settings->ExtSecurity = FALSE;
+            freerdp_settings_set_bool(rdp_settings, FreeRDP_ExtSecurity, FALSE);
             break;
 
     }
 
     /* Security */
-    rdp_settings->Authentication = !guac_settings->disable_authentication;
-    rdp_settings->IgnoreCertificate = guac_settings->ignore_certificate;
-    rdp_settings->AutoAcceptCertificate = guac_settings->certificate_tofu;
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_Authentication, !guac_settings->disable_authentication);
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_IgnoreCertificate, guac_settings->ignore_certificate);
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_AutoAcceptCertificate, guac_settings->certificate_tofu);
     if (guac_settings->certificate_fingerprints != NULL)
-        rdp_settings->CertificateAcceptedFingerprints = guac_strdup(guac_settings->certificate_fingerprints);
+        freerdp_settings_set_string(rdp_settings, FreeRDP_CertificateAcceptedFingerprints, 
+                guac_strdup(guac_settings->certificate_fingerprints));
+
 
     /* RemoteApp */
     if (guac_settings->remote_app != NULL) {
-        rdp_settings->Workarea = TRUE;
-        rdp_settings->RemoteApplicationMode = TRUE;
-        rdp_settings->RemoteAppLanguageBarSupported = TRUE;
-        rdp_settings->RemoteApplicationProgram = guac_strdup(guac_settings->remote_app);
-        rdp_settings->ShellWorkingDirectory = guac_strdup(guac_settings->remote_app_dir);
-        rdp_settings->RemoteApplicationCmdLine = guac_strdup(guac_settings->remote_app_args);
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_Workarea, TRUE);
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_RemoteApplicationMode, TRUE);
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_RemoteAppLanguageBarSupported, TRUE);
+        freerdp_settings_set_string(rdp_settings, FreeRDP_RemoteApplicationProgram, guac_strdup(guac_settings->remote_app));
+        freerdp_settings_set_string(rdp_settings, FreeRDP_ShellWorkingDirectory, guac_strdup(guac_settings->remote_app_dir));
+        freerdp_settings_set_string(rdp_settings, FreeRDP_RemoteApplicationCmdLine, guac_strdup(guac_settings->remote_app_args));
     }
 
     /* Preconnection ID */
     if (guac_settings->preconnection_id != -1) {
-        rdp_settings->NegotiateSecurityLayer = FALSE;
-        rdp_settings->SendPreconnectionPdu = TRUE;
-        rdp_settings->PreconnectionId = guac_settings->preconnection_id;
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_NegotiateSecurityLayer, FALSE);
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_SendPreconnectionPdu, TRUE);
+        freerdp_settings_set_uint32(rdp_settings, FreeRDP_PreconnectionId, guac_settings->preconnection_id);
     }
 
     /* Preconnection BLOB */
     if (guac_settings->preconnection_blob != NULL) {
-        rdp_settings->NegotiateSecurityLayer = FALSE;
-        rdp_settings->SendPreconnectionPdu = TRUE;
-        rdp_settings->PreconnectionBlob = guac_strdup(guac_settings->preconnection_blob);
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_NegotiateSecurityLayer, FALSE);
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_SendPreconnectionPdu, TRUE);
+        freerdp_settings_set_string(rdp_settings, FreeRDP_PreconnectionBlob, guac_strdup(guac_settings->preconnection_blob));
     }
 
     /* Enable use of RD gateway if a gateway hostname is provided */
     if (guac_settings->gateway_hostname != NULL) {
 
         /* Enable RD gateway */
-        rdp_settings->GatewayEnabled = TRUE;
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_GatewayEnabled, TRUE);
 
         /* RD gateway connection details */
-        rdp_settings->GatewayHostname = guac_strdup(guac_settings->gateway_hostname);
-        rdp_settings->GatewayPort = guac_settings->gateway_port;
+        freerdp_settings_set_string(rdp_settings, FreeRDP_GatewayHostname, guac_strdup(guac_settings->gateway_hostname));
+        freerdp_settings_set_uint32(rdp_settings, FreeRDP_GatewayPort, guac_settings->gateway_port);
 
         /* RD gateway credentials */
-        rdp_settings->GatewayUseSameCredentials = FALSE;
-        rdp_settings->GatewayDomain = guac_strdup(guac_settings->gateway_domain);
-        rdp_settings->GatewayUsername = guac_strdup(guac_settings->gateway_username);
-        rdp_settings->GatewayPassword = guac_strdup(guac_settings->gateway_password);
+        freerdp_settings_set_bool(rdp_settings, FreeRDP_GatewayUseSameCredentials, FALSE);
+        freerdp_settings_set_string(rdp_settings, FreeRDP_GatewayDomain, guac_strdup(guac_settings->gateway_domain));
+        freerdp_settings_set_string(rdp_settings, FreeRDP_GatewayUsername, guac_strdup(guac_settings->gateway_username));
+        freerdp_settings_set_string(rdp_settings, FreeRDP_GatewayPassword, guac_strdup(guac_settings->gateway_password));
 
     }
 
     /* Store load balance info (and calculate length) if provided */
     if (guac_settings->load_balance_info != NULL) {
-        rdp_settings->LoadBalanceInfo = (BYTE*) guac_strdup(guac_settings->load_balance_info);
-        rdp_settings->LoadBalanceInfoLength = strlen(guac_settings->load_balance_info);
+        freerdp_settings_set_pointer(rdp_settings, FreeRDP_LoadBalanceInfo, (BYTE*) guac_strdup(guac_settings->load_balance_info));
+        freerdp_settings_set_uint32(rdp_settings, FreeRDP_LoadBalanceInfoLength, strlen(guac_settings->load_balance_info));
     }
 
-    rdp_settings->BitmapCacheEnabled = !guac_settings->disable_bitmap_caching;
-    rdp_settings->OffscreenSupportLevel = !guac_settings->disable_offscreen_caching;
-    rdp_settings->GlyphSupportLevel = !guac_settings->disable_glyph_caching ? GLYPH_SUPPORT_FULL : GLYPH_SUPPORT_NONE;
-    rdp_settings->OsMajorType = OSMAJORTYPE_UNSPECIFIED;
-    rdp_settings->OsMinorType = OSMINORTYPE_UNSPECIFIED;
-    rdp_settings->DesktopResize = TRUE;
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_BitmapCacheEnabled, !guac_settings->disable_bitmap_caching);
+    freerdp_settings_set_uint32(rdp_settings, FreeRDP_OffscreenSupportLevel, !guac_settings->disable_offscreen_caching);
+    freerdp_settings_set_uint32(rdp_settings, FreeRDP_GlyphSupportLevel, 
+            (!guac_settings->disable_glyph_caching ? GLYPH_SUPPORT_FULL : GLYPH_SUPPORT_NONE));
+    freerdp_settings_set_uint32(rdp_settings, FreeRDP_OsMajorType, OSMAJORTYPE_UNSPECIFIED);
+    freerdp_settings_set_uint32(rdp_settings, FreeRDP_OsMinorType, OSMINORTYPE_UNSPECIFIED);
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_DesktopResize, TRUE);
 
     /* Claim support only for specific updates, independent of FreeRDP defaults */
-    ZeroMemory(rdp_settings->OrderSupport, GUAC_RDP_ORDER_SUPPORT_LENGTH);
-    rdp_settings->OrderSupport[NEG_DSTBLT_INDEX] = TRUE;
-    rdp_settings->OrderSupport[NEG_SCRBLT_INDEX] = TRUE;
-    rdp_settings->OrderSupport[NEG_MEMBLT_INDEX] = !guac_settings->disable_bitmap_caching;
-    rdp_settings->OrderSupport[NEG_MEMBLT_V2_INDEX] = !guac_settings->disable_bitmap_caching;
-    rdp_settings->OrderSupport[NEG_GLYPH_INDEX_INDEX] = !guac_settings->disable_glyph_caching;
-    rdp_settings->OrderSupport[NEG_FAST_INDEX_INDEX] = !guac_settings->disable_glyph_caching;
-    rdp_settings->OrderSupport[NEG_FAST_GLYPH_INDEX] = !guac_settings->disable_glyph_caching;
+	BYTE* order_support = freerdp_settings_get_pointer_writable(rdp_settings, FreeRDP_OrderSupport);
+	if (order_support) {
+        ZeroMemory(order_support, GUAC_RDP_ORDER_SUPPORT_LENGTH);
+        order_support[NEG_DSTBLT_INDEX] = TRUE;
+        order_support[NEG_SCRBLT_INDEX] = TRUE;
+        order_support[NEG_MEMBLT_INDEX] = !guac_settings->disable_bitmap_caching;
+        order_support[NEG_MEMBLT_V2_INDEX] = !guac_settings->disable_bitmap_caching;
+        order_support[NEG_GLYPH_INDEX_INDEX] = !guac_settings->disable_glyph_caching;
+        order_support[NEG_FAST_INDEX_INDEX] = !guac_settings->disable_glyph_caching;
+        order_support[NEG_FAST_GLYPH_INDEX] = !guac_settings->disable_glyph_caching;
+    }
 
 #ifdef HAVE_RDPSETTINGS_ALLOWUNANOUNCEDORDERSFROMSERVER
     /* Do not consider server use of unannounced orders to be a fatal error */
-    rdp_settings->AllowUnanouncedOrdersFromServer = TRUE;
+    freerdp_settings_set_bool(rdp_settings, FreeRDP_AllowUnanouncedOrdersFromServer, TRUE);
 #endif
 
 }
-

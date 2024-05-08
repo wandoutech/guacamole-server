@@ -136,8 +136,7 @@ void guac_freerdp_dynamic_channel_collection_add(rdpSettings* settings,
     va_end(args);
 
     /* Register plugin with FreeRDP */
-    settings->SupportDynamicChannels = TRUE;
+    freerdp_settings_set_bool(settings, FreeRDP_SupportDynamicChannels, TRUE);
     freerdp_dynamic_channel_collection_add(settings, freerdp_args);
 
 }
-

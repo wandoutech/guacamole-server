@@ -71,7 +71,7 @@ typedef struct guac_rdp_glyph {
  * @return
  *     TRUE if successful, FALSE otherwise.
  */
-BOOL guac_rdp_glyph_new(rdpContext* context, const rdpGlyph* glyph);
+BOOL guac_rdp_glyph_new(rdpContext* context, rdpGlyph* glyph);
 
 /**
  * Draws a previously-cached glyph at the given coordinates within the current

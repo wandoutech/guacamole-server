@@ -28,6 +28,14 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifdef USE_LEGACY_COLOR_FUNCS
+#define GUAC_READ_COLOR ReadColor
+#define GUAC_WRITE_COLOR WriteColor
+#else
+#define GUAC_READ_COLOR FreeRDPReadColor
+#define GUAC_WRITE_COLOR FreeRDPWriteColor
+#endif
+
 UINT32 guac_rdp_get_native_pixel_format(BOOL alpha) {
 
     uint32_t int_value;
@@ -56,7 +64,7 @@ UINT32 guac_rdp_convert_color(rdpContext* context, UINT32 color) {
 
     /* Convert provided color into the intermediate representation expected by
      * FreeRDPConvertColor() */
-    UINT32 intermed = ReadColor((BYTE*) &color, src_format);
+    UINT32 intermed = GUAC_READ_COLOR((BYTE*) &color, src_format);
 
     /* Convert color from RDP source format to the native format used by Cairo,
      * still maintaining intermediate representation */
@@ -69,8 +77,7 @@ UINT32 guac_rdp_convert_color(rdpContext* context, UINT32 color) {
 
     /* Convert color from intermediate representation to the actual desired
      * format */
-    WriteColor((BYTE*) &color, dst_format, intermed);
+    GUAC_WRITE_COLOR((BYTE*) &color, dst_format, intermed);
     return color;
 
 }
-

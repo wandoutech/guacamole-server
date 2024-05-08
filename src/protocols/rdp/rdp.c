@@ -53,12 +53,6 @@
 #endif
 
 #include <freerdp/addin.h>
-#include <freerdp/cache/bitmap.h>
-#include <freerdp/cache/brush.h>
-#include <freerdp/cache/glyph.h>
-#include <freerdp/cache/offscreen.h>
-#include <freerdp/cache/palette.h>
-#include <freerdp/cache/pointer.h>
 #include <freerdp/channels/channels.h>
 #include <freerdp/client/channels.h>
 #include <freerdp/freerdp.h>
@@ -178,42 +172,35 @@ BOOL rdp_freerdp_pre_connect(freerdp* instance) {
     graphics_register_pointer(graphics, &pointer);
 
     /* Beep on receipt of Play Sound PDU */
-    instance->update->PlaySound = guac_rdp_beep_play_sound;
+    instance->context->update->PlaySound = guac_rdp_beep_play_sound;
 
     /* Automatically synchronize keyboard locks when changed server-side */
-    instance->update->SetKeyboardIndicators = guac_rdp_keyboard_set_indicators;
+    instance->context->update->SetKeyboardIndicators = guac_rdp_keyboard_set_indicators;
 
     /* Set up GDI */
-    instance->update->DesktopResize = guac_rdp_gdi_desktop_resize;
-    instance->update->BeginPaint = guac_rdp_gdi_begin_paint;
-    instance->update->EndPaint = guac_rdp_gdi_end_paint;
-    instance->update->SetBounds = guac_rdp_gdi_set_bounds;
+    instance->context->update->DesktopResize = guac_rdp_gdi_desktop_resize;
+    instance->context->update->BeginPaint = guac_rdp_gdi_begin_paint;
+    instance->context->update->EndPaint = guac_rdp_gdi_end_paint;
+    instance->context->update->SetBounds = guac_rdp_gdi_set_bounds;
 
-    instance->update->SurfaceFrameMarker = guac_rdp_gdi_surface_frame_marker;
-    instance->update->altsec->FrameMarker = guac_rdp_gdi_frame_marker;
+    instance->context->update->SurfaceFrameMarker = guac_rdp_gdi_surface_frame_marker;
+    instance->context->update->altsec->FrameMarker = guac_rdp_gdi_frame_marker;
 
-    rdpPrimaryUpdate* primary = instance->update->primary;
+    rdpPrimaryUpdate* primary = instance->context->update->primary;
     primary->DstBlt = guac_rdp_gdi_dstblt;
     primary->PatBlt = guac_rdp_gdi_patblt;
     primary->ScrBlt = guac_rdp_gdi_scrblt;
     primary->MemBlt = guac_rdp_gdi_memblt;
     primary->OpaqueRect = guac_rdp_gdi_opaquerect;
 
-    pointer_cache_register_callbacks(instance->update);
-    glyph_cache_register_callbacks(instance->update);
-    brush_cache_register_callbacks(instance->update);
-    bitmap_cache_register_callbacks(instance->update);
-    offscreen_cache_register_callbacks(instance->update);
-    palette_cache_register_callbacks(instance->update);
-
     /* Load "rdpgfx" plugin for Graphics Pipeline Extension */
     if (settings->enable_gfx)
         guac_rdp_rdpgfx_load_plugin(context);
 
     /* Load plugin providing Dynamic Virtual Channel support, if required */
-    if (instance->settings->SupportDynamicChannels &&
+    if (freerdp_settings_get_bool(instance->context->settings, FreeRDP_SupportDynamicChannels) &&
             guac_freerdp_channels_load_plugin(context, "drdynvc",
-                instance->settings)) {
+                instance->context->settings)) {
         guac_client_log(client, GUAC_LOG_WARNING,
                 "Failed to load drdynvc plugin. Display update and audio "
                 "input support will be disabled.");
@@ -622,7 +609,7 @@ static int guac_rdp_handle_connection(guac_client* client) {
         }
 
         /* Test whether the RDP server is closing the connection */
-        int connection_closing = freerdp_shall_disconnect(rdp_inst);
+        int connection_closing = freerdp_shall_disconnect_context(rdp_inst->context);
 
         /* Close connection cleanly if server is disconnecting */
         if (connection_closing)
