@@ -26,7 +26,6 @@
 # removed in more recent versions.
 ARG ALPINE_BASE_IMAGE=3.18
 FROM alpine:${ALPINE_BASE_IMAGE} AS builder
-
 # Install build dependencies
 RUN apk add --no-cache                \
         autoconf                      \
@@ -64,11 +63,11 @@ ARG PREFIX_DIR=/opt/guacamole
 # library (these can be overridden at build time if a specific version is
 # needed)
 #
-ARG WITH_FREERDP='2(\.\d+)+'
-ARG WITH_LIBSSH2='libssh2-\d+(\.\d+)+'
-ARG WITH_LIBTELNET='\d+(\.\d+)+'
-ARG WITH_LIBVNCCLIENT='LibVNCServer-\d+(\.\d+)+'
-ARG WITH_LIBWEBSOCKETS='v\d+(\.\d+)+'
+ARG WITH_FREERDP='2.11.7'
+ARG WITH_LIBSSH2='libssh2-1.11.0'
+ARG WITH_LIBTELNET='0.23'
+ARG WITH_LIBVNCCLIENT='LibVNCServer-0.9.14'
+ARG WITH_LIBWEBSOCKETS='v4.3.3'
 
 #
 # Default build options for each core protocol support library, as well as
@@ -167,6 +166,8 @@ ENV GUACD_LOG_LEVEL=info
 
 # Copy build artifacts into this stage
 COPY --from=builder ${PREFIX_DIR} ${PREFIX_DIR}
+COPY ./fonts/Menlo-Regular.ttf /usr/share/fonts/
+COPY ./fonts/SourceHanSansCN-Regular.otf /usr/share/fonts/
 
 # Bring runtime environment up to date and install runtime dependencies
 RUN apk add --no-cache                \
@@ -178,12 +179,21 @@ RUN apk add --no-cache                \
         terminus-font                 \
         ttf-dejavu                    \
         ttf-liberation                \
+        fontconfig                    \
+        bash                            \
+        curl                            \
         util-linux-login && \
     xargs apk add --no-cache < ${PREFIX_DIR}/DEPENDENCIES
 
+RUN apk add tzdata && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    apk del tzdata && \
+    rm -rf /var/cache/apk/*
+
 # Checks the operating status every 5 minutes with a timeout of 5 seconds
 HEALTHCHECK --interval=5m --timeout=5s CMD nc -z 127.0.0.1 4822 || exit 1
-
+RUN mkfontscale && mkfontdir && fc-cache
 # Create a new user guacd
 ARG UID=1000
 ARG GID=1000
@@ -191,14 +201,14 @@ RUN groupadd --gid $GID guacd
 RUN useradd --system --create-home --shell /sbin/nologin --uid $UID --gid $GID guacd
 
 # Run with user guacd
-USER guacd
+USER root
 
 # Expose the default listener port
 EXPOSE 4822
 
 # Start guacd, listening on port 0.0.0.0:4822
 #
-# Note the path here MUST correspond to the value specified in the 
+# Note the path here MUST correspond to the value specified in the
 # PREFIX_DIR build argument.
 #
 CMD /opt/guacamole/sbin/guacd -b 0.0.0.0 -L $GUACD_LOG_LEVEL -f
